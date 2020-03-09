@@ -215,3 +215,24 @@ fixed file system
 - Removed RELEASE tag from versions, which is unnecessary.
 - Fixed a typo in /levelledMobs info.
 - Source now includes changelog file.
+
+1.24
+notable:
+- [pull #40] worldguard region levelling added by Eyrian
+- [pull #39] update nametags on health regain by konsolas
+
+other:
+- moved LevelManager to utils package
+- renamed a bunch of listener classes to correspond to their events
+
+1.25
+- fixed nether portals duping mob attribs
+
+1.26
+- added ranged damage
+- [issue #41] fixed portals doubling attributes
+- [issue #38] fixed mob equipment multiplying
+
+1.27
+- NOT RELEASED YET
+- blacklists can now use the term 'ALL' to block all possible values.

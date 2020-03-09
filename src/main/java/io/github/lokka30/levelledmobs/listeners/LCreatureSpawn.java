@@ -1,6 +1,5 @@
 package io.github.lokka30.levelledmobs.listeners;
 
-import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import io.github.lokka30.levelledmobs.LevelledMobs;
 import io.github.lokka30.levelledmobs.utils.Utils;
 import org.bukkit.attribute.Attribute;
@@ -16,10 +15,10 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.github.lokka30.levelledmobs.utils.ManageWorldGuard.*;
-import static io.github.lokka30.levelledmobs.utils.Utils.*;
+import static io.github.lokka30.levelledmobs.utils.WorldGuardManager.checkRegionFlags;
+import static io.github.lokka30.levelledmobs.utils.WorldGuardManager.getRegionLevel;
 
-public class LMobSpawn implements Listener {
+public class LCreatureSpawn implements Listener {
 
     private LevelledMobs instance = LevelledMobs.getInstance();
 
@@ -46,7 +45,7 @@ public class LMobSpawn implements Listener {
 
                 //Check the list of blacklisted worlds. If the entity's world is in here, then we don't continue.
                 for (String blacklistedWorld : instance.settings.get("blacklisted-worlds", Collections.singletonList("BLACKLISTED_WORLD"))) {
-                    if (e.getEntity().getWorld().getName().equalsIgnoreCase(blacklistedWorld)) {
+                    if (e.getEntity().getWorld().getName().equalsIgnoreCase(blacklistedWorld) || blacklistedWorld.equals("ALL")) {
                         return;
                     }
                 }
@@ -54,9 +53,14 @@ public class LMobSpawn implements Listener {
                 //Check the list of blacklisted spawn reasons. If the entity's spawn reason is in there, then we don't continue.
                 //Uses a default as "NONE" as there are no blocked spawn reasons in the default config.
                 for (String blacklistedReason : instance.settings.get("blacklisted-reasons", Collections.singletonList("NONE"))) {
-                    if (e.getSpawnReason().toString().equalsIgnoreCase(blacklistedReason)) {
+                    if (e.getSpawnReason().toString().equalsIgnoreCase(blacklistedReason) || blacklistedReason.equals("ALL")) {
                         return;
                     }
+                }
+
+                //Check if mob is already levelled. Fixes portal doubling and other related issues.
+                if (e.getEntity().getPersistentDataContainer().get(instance.key, PersistentDataType.INTEGER) != null) {
+                    return;
                 }
 
                 //Set the entity's max health.
@@ -73,35 +77,14 @@ public class LMobSpawn implements Listener {
                     Objects.requireNonNull(ent.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED)).setBaseValue(newMovementSpeed);
                 }
 
-                //These are melee mobs - their attack damage can be defined.
-                // Don't touch ranged mobs, else a NPE will occur.
-                // Ranged mobs' damage is planned to be added in a later date.
-                switch (ent.getType()) {
-                    case ZOMBIE:
-                    case HUSK:
-                    case DROWNED:
-                    case ZOMBIE_VILLAGER:
-                    case WITHER_SKELETON:
-                    case PIG_ZOMBIE:
-                    case CAVE_SPIDER:
-                    case SILVERFISH:
-                    case SPIDER:
-                    case ENDERMAN:
-                    case ENDERMITE:
-                    case SLIME:
-                    case VINDICATOR:
-                    case RAVAGER:
-                    case EVOKER:
-                    case IRON_GOLEM:
-                        final double baseAttackDamage = Objects.requireNonNull(e.getEntity().getAttribute(Attribute.GENERIC_ATTACK_DAMAGE)).getBaseValue();
-                        final double defaultAttackDamageAddition = instance.settings.get("fine-tuning.default-attack-damage-increase", 1.0F);
-                        final double attackDamageMultiplier = instance.settings.get("fine-tuning.multipliers.attack-damage", 1.5F);
-                        final double newAttackDamage = baseAttackDamage + defaultAttackDamageAddition + (attackDamageMultiplier * level);
+                //Checks if mobs attack damage can be modified before changing it.
+                if (e.getEntity().getAttribute(Attribute.GENERIC_ATTACK_DAMAGE) != null) {
+                    final double baseAttackDamage = Objects.requireNonNull(e.getEntity().getAttribute(Attribute.GENERIC_ATTACK_DAMAGE)).getBaseValue();
+                    final double defaultAttackDamageAddition = instance.settings.get("fine-tuning.default-attack-damage-increase", 1.0F);
+                    final double attackDamageMultiplier = instance.settings.get("fine-tuning.multipliers.attack-damage", 1.5F);
+                    final double newAttackDamage = baseAttackDamage + defaultAttackDamageAddition + (attackDamageMultiplier * level);
 
-                        Objects.requireNonNull(ent.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE)).setBaseValue(newAttackDamage);
-                        break;
-                    default: //The mob isn't a melee mob defined above. Don't set their movement speed.
-                        break;
+                    Objects.requireNonNull(ent.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE)).setBaseValue(newAttackDamage);
                 }
 
                 //Define the mob's level so it can be accessed elsewhere.

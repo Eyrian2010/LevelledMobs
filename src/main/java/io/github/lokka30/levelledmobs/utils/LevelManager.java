@@ -1,6 +1,6 @@
-package io.github.lokka30.levelledmobs;
+package io.github.lokka30.levelledmobs.utils;
 
-import io.github.lokka30.levelledmobs.utils.Utils;
+import io.github.lokka30.levelledmobs.LevelledMobs;
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
@@ -8,6 +8,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,7 +31,7 @@ public class LevelManager {
         //Set it to what's specified. If it's invalid, it'll just take a small predefiend list.
         blacklistedTypes = instance.settings.get("blacklisted-types", Arrays.asList("VILLAGER", "WANDERING_TRADER", "ENDER_DRAGON", "WITHER"));
         for (String blacklistedType : blacklistedTypes) {
-            if (entity.getType().toString().equalsIgnoreCase(blacklistedType)) {
+            if (entity.getType().toString().equalsIgnoreCase(blacklistedType) || blacklistedType.equals("ALL")) {
                 return false;
             }
         }
@@ -39,8 +40,17 @@ public class LevelManager {
         return entity instanceof Monster || instance.settings.get("level-passive", false);
     }
 
+    //Update an entity's tag. it is called twice as when a mob gets damaged their health is updated after to the health after they got damaged.
+    public void updateTag(Entity ent) {
+        new BukkitRunnable() {
+            public void run() {
+                setTag(ent);
+            }
+        }.runTaskLater(instance, 1L);
+    }
+
     //Updates the nametag of a creature. Gets called by certain listeners.
-    public void updateTag(final Entity entity) {
+    public void setTag(final Entity entity) {
         if (entity instanceof LivingEntity && instance.settings.get("enable-nametag-changes", true)) { //if the settings allows nametag changes, go ahead.
             final LivingEntity livingEntity = (LivingEntity) entity;
 
@@ -95,8 +105,25 @@ public class LevelManager {
 
             //Calculate if the remaining extra drop chance triggers.
             double random = new Random().nextDouble();
-            if (random < dropMultiplier)
+            if (random < dropMultiplier) {
                 finalMultiplier++;
+            }
+
+            //Remove the hand item from the mob's drops so it doesn't get multiplied
+            ItemStack helmet = null;
+            ItemStack chestplate = null;
+            ItemStack leggings = null;
+            ItemStack boots = null;
+            ItemStack mainHand = null;
+            ItemStack offHand = null;
+            if (ent.getEquipment() != null) {
+                helmet = ent.getEquipment().getHelmet();
+                chestplate = ent.getEquipment().getChestplate();
+                leggings = ent.getEquipment().getLeggings();
+                boots = ent.getEquipment().getBoots();
+                mainHand = ent.getEquipment().getItemInMainHand();
+                offHand = ent.getEquipment().getItemInOffHand();
+            }
 
             //Edit the ItemStacks to drop the calculated multiple items.
             for (int i = 0; i < drops.size(); i++) {
@@ -108,6 +135,26 @@ public class LevelManager {
                 int maxStackSize = itemStack.getMaxStackSize();
                 if (amount > maxStackSize) {
                     amount = maxStackSize;
+                }
+
+                //Don't let the plugin multiply items which match their equipment. stops bows and that from multiplying
+                if (helmet != null && itemStack.isSimilar(helmet)) {
+                    amount = helmet.getAmount();
+                }
+                if (chestplate != null && itemStack.isSimilar(chestplate)) {
+                    amount = chestplate.getAmount();
+                }
+                if (leggings != null && itemStack.isSimilar(leggings)) {
+                    amount = leggings.getAmount();
+                }
+                if (boots != null && itemStack.isSimilar(boots)) {
+                    amount = boots.getAmount();
+                }
+                if (mainHand != null && itemStack.isSimilar(mainHand)) {
+                    amount = mainHand.getAmount();
+                }
+                if (offHand != null && itemStack.isSimilar(offHand)) {
+                    amount = offHand.getAmount();
                 }
 
                 itemStack.setAmount(amount);
